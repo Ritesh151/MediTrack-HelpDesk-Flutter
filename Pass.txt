@@ -1,0 +1,12 @@
+🔑 Updated Test Credentials:
+For Super User Dashboard:
+
+Email: super@meditrack.com
+Password: super123
+For Admin Dashboard:
+
+Email: admin@meditrack.com
+Password: admin123
+
+
+flutter run -d chrome --no-dds
