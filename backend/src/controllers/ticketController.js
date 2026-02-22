@@ -38,10 +38,9 @@ export const getTickets = async (req, res) => {
     }
 
     // Admin sees:
-    // - tickets assigned to them
-    // - tickets that belong to their hospital
-    // - legacy tickets created before Ticket.hospitalId existed (ticket.hospitalId empty)
-    //   by matching the patient's hospitalId
+    // 1. Tickets explicitly assigned to them (via assignedAdminId)
+    // 2. Unassigned tickets (no assignedAdminId) that belong to their hospital
+    // 3. Legacy unassigned tickets where ticket.hospitalId is empty but patient's hospitalId matches
     if (req.user.role === "admin") {
         const adminId = new mongoose.Types.ObjectId(req.user.id);
         const adminHospitalId = req.user.hospitalId || "";
@@ -59,8 +58,21 @@ export const getTickets = async (req, res) => {
             {
                 $match: {
                     $or: [
+                        // Case 1: Ticket explicitly assigned to this admin
                         { assignedAdminId: adminId },
-                        { hospitalId: adminHospitalId },
+                        // Case 2: Ticket belongs to admin's hospital AND is not yet assigned to anyone else
+                        {
+                            $and: [
+                                { hospitalId: adminHospitalId },
+                                {
+                                    $or: [
+                                        { assignedAdminId: { $exists: false } },
+                                        { assignedAdminId: null },
+                                    ],
+                                },
+                            ],
+                        },
+                        // Case 3: Legacy ticket with empty hospitalId — match via patient's hospital, unassigned
                         {
                             $and: [
                                 {
@@ -71,6 +83,12 @@ export const getTickets = async (req, res) => {
                                     ],
                                 },
                                 { "patient.hospitalId": adminHospitalId },
+                                {
+                                    $or: [
+                                        { assignedAdminId: { $exists: false } },
+                                        { assignedAdminId: null },
+                                    ],
+                                },
                             ],
                         },
                     ],
@@ -135,6 +153,12 @@ export const getPendingTickets = async (req, res) => {
 
 export const assignTicket = async (req, res) => {
     const { adminId } = req.body;
+
+    if (!adminId || !mongoose.Types.ObjectId.isValid(adminId)) {
+        res.status(400);
+        throw new Error("Invalid adminId provided");
+    }
+
     const ticket = await Ticket.findById(req.params.id);
 
     if (!ticket) {
@@ -142,11 +166,17 @@ export const assignTicket = async (req, res) => {
         throw new Error("Ticket not found");
     }
 
-    ticket.assignedAdminId = adminId;
+    // Cast to ObjectId explicitly so aggregate ObjectId comparisons always work
+    ticket.assignedAdminId = new mongoose.Types.ObjectId(adminId);
     ticket.status = "assigned";
     await ticket.save();
 
-    res.json(ticket);
+    // Return populated ticket so frontend gets all details
+    const populated = await Ticket.findById(ticket._id)
+        .populate("patientId", "name email")
+        .populate("assignedAdminId", "name email");
+
+    res.json(populated);
 };
 
 export const replyToTicket = async (req, res) => {

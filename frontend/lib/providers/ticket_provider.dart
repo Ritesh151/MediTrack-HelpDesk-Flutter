@@ -68,7 +68,12 @@ class TicketProvider extends ChangeNotifier {
     _setLoading(true);
     try {
       await _repository.assignTicket(ticketId, adminId);
-      await loadPendingTickets();
+      // Refresh pending list so the assigned ticket disappears from super user view,
+      // and also refresh the main ticket list so admin dashboards stay consistent.
+      await Future.wait([
+        loadPendingTickets(),
+        loadTickets(),
+      ]);
     } catch (e) {
       rethrow;
     } finally {

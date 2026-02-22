@@ -6,6 +6,11 @@ project(frontend LANGUAGES CXX)
 # the on-disk name of your application.
 set(BINARY_NAME "frontend")
 
+# Fix for Firebase C++ SDK Windows which uses cmake_minimum_required(VERSION 3.1).
+# Newer CMake (3.27+) removed support for policies older than CMake 3.5.
+# Setting this cache variable tells CMake to accept old sub-project declarations.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "" FORCE)
+
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
 cmake_policy(VERSION 3.14...3.25)
