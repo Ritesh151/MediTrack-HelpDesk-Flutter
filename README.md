@@ -449,9 +449,8 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE.md) fi
 
 ## 📞 Contact
 
-- **Project Lead**: [your-email@example.com]
-- **Team**: [team-email@example.com]
-- **Repository**: [GitHub Repository URL]
+- **Project Owner**: ritesh.work.1510@gmail.com
+- **Repository**: https://github.com/Ritesh151/MediTrack-HelpDesk-Flutter
 
 ## 🔄 Version History
 
