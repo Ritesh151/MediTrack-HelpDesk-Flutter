@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 class AppConstants {
   // Use origin only for baseUrl to avoid double prefixing with relative paths
   // Use 10.0.2.2 for Android Emulator, localhost for others
+  // Backend runs on port 5000, not 5001
   static String get baseUrl => kIsWeb ? "http://localhost:5000" : "http://10.0.2.2:5000";
   
   // All endpoints start with /api to be absolutely safe

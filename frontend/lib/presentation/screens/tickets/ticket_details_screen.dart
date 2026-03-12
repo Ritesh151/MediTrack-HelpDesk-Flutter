@@ -5,6 +5,9 @@ import 'package:intl/intl.dart';
 import '../../../data/models/ticket_model.dart';
 import '../../../providers/chat_provider.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../widgets/ticket_timeline.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/constants/app_colors.dart';
 
 class TicketDetailsScreen extends StatefulWidget {
   final TicketModel ticket;
@@ -57,14 +60,45 @@ class _TicketDetailsScreenState extends State<TicketDetailsScreen> {
     final user = Provider.of<AuthProvider>(context).user;
 
     return Scaffold(
+      backgroundColor: AppColors.scaffoldBackground,
       appBar: AppBar(
-        title: Text('Ticket Details', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+        title: Text(
+          'Ticket Details',
+          style: AppTheme.headline3.copyWith(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: AppColors.surface,
+        elevation: 0,
+        foregroundColor: AppColors.textPrimary,
+        actions: [
+          IconButton(
+            onPressed: () => Navigator.pushNamed(context, '/ticket-reply', arguments: widget.ticket),
+            icon: const Icon(Icons.chat_outlined, color: AppColors.primary),
+            tooltip: 'Open Chat',
+          ),
+        ],
       ),
       body: Column(
         children: [
           _buildTicketInfo(),
           if (widget.ticket.reply != null) _buildReplySection(),
-          const Divider(height: 1),
+          Container(
+            height: 1,
+            color: AppColors.divider,
+          ),
+          // Timeline Section
+          if (widget.ticket.history != null && widget.ticket.history!.isNotEmpty)
+            Container(
+              width: double.infinity,
+              color: AppColors.scaffoldBackground,
+              child: TicketTimeline(history: widget.ticket.history!),
+            ),
+          Container(
+            height: 1,
+            color: AppColors.divider,
+          ),
           Expanded(child: _buildChatList(user?.id)),
           _buildMessageInput(),
         ],
@@ -75,8 +109,15 @@ class _TicketDetailsScreenState extends State<TicketDetailsScreen> {
   Widget _buildTicketInfo() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
+      padding: const EdgeInsets.all(AppTheme.lg),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(AppTheme.radiusMedium),
+          bottomRight: Radius.circular(AppTheme.radiusMedium),
+        ),
+        boxShadow: AppTheme.cardShadow,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -84,16 +125,82 @@ class _TicketDetailsScreenState extends State<TicketDetailsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'ID: ${widget.ticket.id.substring(widget.ticket.id.length - 6).toUpperCase()}',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.blue),
+                'Case: ${widget.ticket.caseNumber}',
+                style: AppTheme.bodyMedium.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              _buildStatusBadge(widget.ticket.status),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: AppTheme.sm, vertical: AppTheme.xs),
+                    decoration: BoxDecoration(
+                      color: _getPriorityColor(widget.ticket.priority).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                    ),
+                    child: Text(
+                      widget.ticket.priority.toUpperCase(),
+                      style: AppTheme.bodySmall.copyWith(
+                        color: _getPriorityColor(widget.ticket.priority),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppTheme.sm),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: AppTheme.sm, vertical: AppTheme.xs),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(widget.ticket.status).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                    ),
+                    child: Text(
+                      widget.ticket.status.toUpperCase(),
+                      style: AppTheme.bodySmall.copyWith(
+                        color: _getStatusColor(widget.ticket.status),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
-          const SizedBox(height: 10),
-          Text(widget.ticket.issueTitle, style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 5),
-          Text(widget.ticket.description, style: const TextStyle(color: Colors.grey)),
+          const SizedBox(height: AppTheme.md),
+          Text(
+            widget.ticket.issueTitle,
+            style: AppTheme.headline3.copyWith(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: AppTheme.sm),
+          Text(
+            widget.ticket.description,
+            style: AppTheme.bodyMedium.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: AppTheme.sm),
+          Row(
+            children: [
+              Text(
+                'Category:',
+                style: AppTheme.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: AppTheme.xs),
+              Text(
+                widget.ticket.category.replaceAll('_', ' ').toUpperCase(),
+                style: AppTheme.bodySmall.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -103,36 +210,72 @@ class _TicketDetailsScreenState extends State<TicketDetailsScreen> {
     final reply = widget.ticket.reply!;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.all(AppTheme.md),
+      padding: const EdgeInsets.all(AppTheme.lg),
       decoration: BoxDecoration(
-        color: Colors.green.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.green.withOpacity(0.3)),
+        color: AppColors.successLight,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        border: Border.all(color: AppColors.success.withOpacity(0.3)),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.verified, color: Colors.green, size: 20),
-              const SizedBox(width: 8),
-              Text('Doctor Recommendation', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.green)),
+              Container(
+                padding: const EdgeInsets.all(AppTheme.xs),
+                decoration: BoxDecoration(
+                  color: AppColors.success,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                ),
+                child: const Icon(
+                  Icons.verified,
+                  color: AppColors.textOnPrimary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: AppTheme.sm),
+              Text(
+                'Doctor Recommendation',
+                style: AppTheme.headline3.copyWith(
+                  color: AppColors.success,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppTheme.md),
           _buildReplyDetail('Doctor', reply.doctorName),
           _buildReplyDetail('Specialization', reply.specialization),
           _buildReplyDetail('Phone', reply.doctorPhone),
-          const Divider(),
-          Text('Message:', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 13)),
-          Text(reply.replyMessage, style: GoogleFonts.poppins(fontSize: 14)),
-          const SizedBox(height: 8),
+          Container(
+            height: 1,
+            color: AppColors.success.withOpacity(0.3),
+            margin: const EdgeInsets.symmetric(vertical: AppTheme.sm),
+          ),
+          Text(
+            'Message:',
+            style: AppTheme.bodySmall.copyWith(
+              color: AppColors.success,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: AppTheme.xs),
+          Text(
+            reply.replyMessage,
+            style: AppTheme.bodyMedium.copyWith(
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: AppTheme.sm),
           Align(
             alignment: Alignment.bottomRight,
             child: Text(
               'Replied at: ${DateFormat('MMM dd, yyyy').format(reply.repliedAt)}',
-              style: const TextStyle(fontSize: 11, color: Colors.grey),
+              style: AppTheme.caption.copyWith(
+                color: AppColors.textSecondary,
+              ),
             ),
           ),
         ],
@@ -142,46 +285,102 @@ class _TicketDetailsScreenState extends State<TicketDetailsScreen> {
 
   Widget _buildReplyDetail(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      padding: const EdgeInsets.symmetric(vertical: AppTheme.xs),
       child: Row(
         children: [
-          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-          Text(value, style: const TextStyle(fontSize: 13)),
+          Text(
+            '$label: ',
+            style: AppTheme.bodySmall.copyWith(
+              color: AppColors.success,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Text(
+            value,
+            style: AppTheme.bodySmall.copyWith(
+              color: AppColors.textPrimary,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildStatusBadge(String status) {
-    Color color;
+  Color _getStatusColor(String status) {
     switch (status) {
-      case 'pending': color = Colors.orange; break;
-      case 'assigned': color = Colors.blue; break;
-      case 'resolved': color = Colors.green; break;
-      default: color = Colors.grey;
+      case 'pending': return AppColors.warning;
+      case 'assigned': return AppColors.primary;
+      case 'resolved': return AppColors.success;
+      default: return AppColors.gray500;
     }
+  }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
-      child: Text(status.toUpperCase(), style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 10)),
-    );
+  Color _getPriorityColor(String priority) {
+    switch (priority) {
+      case 'low': return AppColors.success;
+      case 'medium': return AppColors.info;
+      case 'high': return AppColors.warning;
+      case 'emergency': return AppColors.error;
+      default: return AppColors.gray500;
+    }
   }
 
   Widget _buildChatList(String? currentUserId) {
     return Consumer<ChatProvider>(
       builder: (context, chatProvider, _) {
-        if (chatProvider.isLoading) return const Center(child: CircularProgressIndicator());
-        if (chatProvider.messages.isEmpty) return const Center(child: Text('No messages yet. Start the conversation!'));
-
+        if (chatProvider.isLoading) {
+          return const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+            ),
+          );
+        }
+        if (chatProvider.messages.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: AppColors.infoLight,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  ),
+                  child: const Icon(
+                    Icons.chat_outlined,
+                    size: 40,
+                    color: AppColors.info,
+                  ),
+                ),
+                const SizedBox(height: AppTheme.md),
+                Text(
+                  'No messages yet',
+                  style: AppTheme.headline3.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: AppTheme.sm),
+                Text(
+                  'Start the conversation',
+                  style: AppTheme.bodyMedium.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
+        }
+        
         return ListView.builder(
           controller: _scrollController,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppTheme.md),
           itemCount: chatProvider.messages.length,
           itemBuilder: (context, index) {
             final msg = chatProvider.messages[index];
             final isMe = msg.senderId == currentUserId;
-
             return _buildMessageBubble(msg, isMe);
           },
         );
@@ -193,34 +392,45 @@ class _TicketDetailsScreenState extends State<TicketDetailsScreen> {
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: const EdgeInsets.only(bottom: AppTheme.md),
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(AppTheme.md),
         decoration: BoxDecoration(
-          color: isMe ? Colors.blue : Colors.grey[200],
+          color: isMe ? AppColors.chatBubbleMe : AppColors.chatBubbleAdmin,
           borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: Radius.circular(isMe ? 16 : 0),
-            bottomRight: Radius.circular(isMe ? 0 : 16),
+            topLeft: const Radius.circular(AppTheme.radiusLarge),
+            topRight: const Radius.circular(AppTheme.radiusLarge),
+            bottomLeft: Radius.circular(isMe ? AppTheme.radiusLarge : 0),
+            bottomRight: Radius.circular(isMe ? 0 : AppTheme.radiusLarge),
           ),
+          boxShadow: AppTheme.cardShadow,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (!isMe)
-              Text(
-                msg.senderName,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.blueGrey),
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppTheme.xs),
+                child: Text(
+                  msg.senderName,
+                  style: AppTheme.bodySmall.copyWith(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             Text(
               msg.text,
-              style: TextStyle(color: isMe ? Colors.white : Colors.black87),
+              style: AppTheme.bodyMedium.copyWith(
+                color: isMe ? AppColors.textOnPrimary : AppColors.textPrimary,
+              ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: AppTheme.xs),
             Text(
               DateFormat('hh:mm a').format(msg.createdAt),
-              style: TextStyle(fontSize: 9, color: isMe ? Colors.white70 : Colors.black54),
+              style: AppTheme.caption.copyWith(
+                color: isMe ? AppColors.textOnPrimary.withOpacity(0.7) : AppColors.chatTimestamp,
+              ),
             ),
           ],
         ),
@@ -230,25 +440,50 @@ class _TicketDetailsScreenState extends State<TicketDetailsScreen> {
 
   Widget _buildMessageInput() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(AppTheme.md),
       decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)],
+        color: AppColors.surface,
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Row(
         children: [
           Expanded(
             child: TextField(
               controller: _messageController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Type a message...',
-                border: InputBorder.none,
+                filled: true,
+                fillColor: AppColors.surface,
+                contentPadding: const EdgeInsets.symmetric(horizontal: AppTheme.md, vertical: AppTheme.md),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                  borderSide: const BorderSide(color: AppColors.border, width: 1),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                  borderSide: const BorderSide(color: AppColors.border, width: 1),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                ),
               ),
             ),
           ),
-          IconButton(
-            onPressed: _sendMessage,
-            icon: const Icon(Icons.send, color: Colors.blue),
+          const SizedBox(width: AppTheme.sm),
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+            ),
+            child: IconButton(
+              onPressed: _sendMessage,
+              icon: const Icon(
+                Icons.send,
+                color: AppColors.textOnPrimary,
+                size: 20,
+              ),
+            ),
           ),
         ],
       ),

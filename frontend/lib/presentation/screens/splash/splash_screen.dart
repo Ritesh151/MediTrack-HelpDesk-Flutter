@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../routes/app_router.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/constants/app_colors.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -43,24 +45,63 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.medical_services, size: 100, color: Colors.blue),
-            const SizedBox(height: 20),
-            Text(
-              'MediTrack Pro',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue[900],
-                  ),
-            ),
-            const SizedBox(height: 10),
-            const Text('Your Health, Our Priority'),
-            const SizedBox(height: 40),
-            const CircularProgressIndicator(),
-          ],
+      backgroundColor: AppColors.scaffoldBackground,
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Logo Container
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
+                  boxShadow: AppTheme.cardShadow,
+                ),
+                child: const Icon(
+                  Icons.medical_services,
+                  size: 60,
+                  color: AppColors.textOnPrimary,
+                ),
+              ),
+              const SizedBox(height: AppTheme.lg),
+              
+              // App Title
+              Text(
+                'MediTrack Pro',
+                style: AppTheme.headline2.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: AppTheme.sm),
+              
+              // Tagline
+              Text(
+                'Your Health, Our Priority',
+                style: AppTheme.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: AppTheme.xxl),
+              
+              // Loading Indicator
+              Container(
+                padding: const EdgeInsets.all(AppTheme.md),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  boxShadow: AppTheme.cardShadow,
+                ),
+                child: const CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                  strokeWidth: 3,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

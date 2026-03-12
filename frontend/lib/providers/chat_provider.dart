@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data/models/message_model.dart';
 import '../data/repositories/chat_repository.dart';
+import '../providers/auth_provider.dart';
 
 class ChatProvider extends ChangeNotifier {
   final ChatRepository _repository = ChatRepository();
@@ -23,9 +24,9 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> sendMessage(String ticketId, String text) async {
+  Future<void> sendMessage(String ticketId, String content) async {
     try {
-      final newMessage = await _repository.sendMessage(ticketId, text);
+      final newMessage = await _repository.sendMessage(ticketId, content);
       _messages.add(newMessage);
       notifyListeners();
     } catch (e) {
@@ -37,5 +38,10 @@ class ChatProvider extends ChangeNotifier {
   void clearMessages() {
     _messages = [];
     notifyListeners();
+  }
+
+  bool isMessageFromCurrentUser(MessageModel message, String? currentUserId) {
+    if (currentUserId == null) return false;
+    return message.senderId == currentUserId;
   }
 }

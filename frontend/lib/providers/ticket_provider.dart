@@ -52,16 +52,69 @@ class TicketProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> createTicket(String issueTitle, String description) async {
+  Future<void> createTicket(String issueTitle, String description, {String priority = 'medium', String category = 'general_inquiry', String? hospitalId}) async {
     _setLoading(true);
     try {
-      await _repository.createTicket(issueTitle, description);
+      debugPrint("TicketProvider: Creating ticket with hospitalId: $hospitalId");
+      
+      await _repository.createTicket(
+        issueTitle, 
+        description, 
+        priority: priority, 
+        category: category,
+        hospitalId: hospitalId
+      );
+      
+      // Refresh ticket list after successful creation
       await loadTickets();
+      
+      debugPrint("TicketProvider: Ticket created and list refreshed successfully");
     } catch (e) {
-      rethrow;
+      debugPrint("TicketProvider: Error in createTicket: $e");
+      
+      // Parse the error and re-throw with user-friendly message
+      final errorMessage = _parseTicketError(e);
+      throw errorMessage;
     } finally {
       _setLoading(false);
     }
+  }
+
+  String _parseTicketError(dynamic error) {
+    if (error is Map) {
+      final message = error['message'] as String?;
+      final code = error['code'] as String?;
+      
+      switch (code) {
+        case 'MISSING_TITLE':
+          return 'Please enter an issue title';
+        case 'MISSING_DESCRIPTION':
+          return 'Please enter a description';
+        case 'MISSING_HOSPITAL_ID':
+          return 'Please select a hospital before creating a ticket';
+        case 'VALIDATION_ERROR':
+          if (error['details'] is List && error['details'].isNotEmpty) {
+            final details = error['details'] as List;
+            return details.map((detail) => detail['message'] as String).join(', ');
+          }
+          return 'Please check all required fields';
+        case 'DUPLICATE_CASE_NUMBER':
+        case 'CASE_NUMBER_CONFLICT':
+          return 'Case number conflict. Please try again.';
+        case 'INVALID_DATA':
+          return 'Invalid ticket data provided';
+        case 'AUTHENTICATION_REQUIRED':
+          return 'Please login to create a ticket';
+        case 'SERVER_ERROR':
+          return 'Server error occurred. Please try again later.';
+        case 'NETWORK_ERROR':
+          return 'Network connection error. Please check your internet.';
+        default:
+          return message ?? 'Failed to create ticket';
+      }
+    }
+    
+    return error.toString();
   }
 
   Future<void> assignTicket(String ticketId, String adminId) async {

@@ -7,7 +7,8 @@ import {
     replyToTicket,
     getTicketDetails,
     deleteTicket,
-    getStats
+    getStats,
+    updateTicketStatus
 } from "../controllers/ticketController.js";
 import { protect, authorize } from "../middleware/authMiddleware.js";
 
@@ -26,6 +27,7 @@ router.get("/:id", protect, getTicketDetails);
 router.patch("/:id/assign", protect, authorize("super"), assignTicket);
 router.patch("/:id/reply", protect, authorize("admin"), replyToTicket);
 
+router.patch("/:id/status", protect, authorize("admin", "super"), updateTicketStatus);
 router.delete("/:id", protect, authorize("admin", "super"), deleteTicket);
 
 export default router;

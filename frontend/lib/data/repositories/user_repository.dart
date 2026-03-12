@@ -39,7 +39,7 @@ class UserRepository {
 
   Future<List<dynamic>> fetchUsers() async {
     try {
-      final response = await _apiService.dio.get(AppConstants.users);
+      final response = await _apiService.get(AppConstants.users);
       return response.data as List;
     } catch (e) {
       rethrow;

@@ -110,14 +110,38 @@ class ApiService {
     final status = e.response?.statusCode;
     final data = e.response?.data;
 
-    if (data is Map<String, dynamic> && data['message'] != null) {
-      return '[$status] ${data['message']}';
+    // Handle specific HTTP status codes with better messages
+    switch (status) {
+      case 404:
+        return 'Resource not found (404): The requested endpoint does not exist';
+      case 401:
+        return 'Unauthorized (401): Please login to access this resource';
+      case 403:
+        return 'Forbidden (403): You do not have permission to access this resource';
+      case 500:
+        return 'Server Error (500): Internal server error occurred';
+      case 409:
+        return 'Conflict (409): Resource conflict detected';
+      default:
+        break;
     }
 
+    // Handle structured error responses from backend
+    if (data is Map<String, dynamic>) {
+      if (data['message'] != null) {
+        return '[$status] ${data['message']}';
+      }
+      if (data['error'] != null) {
+        return '[$status] ${data['error']}';
+      }
+    }
+
+    // Handle string error responses
     if (data is String && data.trim().isNotEmpty) {
       return '[$status] ${data.trim()}';
     }
 
-    return e.message ?? 'Network error';
+    // Fallback to Dio's error message
+    return e.message ?? 'Network error occurred';
   }
 }

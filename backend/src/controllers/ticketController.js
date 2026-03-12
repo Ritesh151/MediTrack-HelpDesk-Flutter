@@ -1,147 +1,156 @@
 import Ticket from "../models/Ticket.js";
+import Hospital from "../models/Hospital.js";
+import TicketService from "../services/ticketService.js";
 import mongoose from "mongoose";
 
 export const createTicket = async (req, res) => {
     console.log("Create Ticket Request - Body:", req.body);
     console.log("Create Ticket Request - User:", req.user);
 
-    const { issueTitle, description } = req.body;
+    const { issueTitle, description, hospitalId, priority = "medium", category = "general_inquiry" } = req.body;
 
     try {
-        const ticket = await Ticket.create({
+        // Validate required fields
+        if (!issueTitle || issueTitle.trim().length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Issue title is required",
+                code: "MISSING_TITLE"
+            });
+        }
+
+        if (!description || description.trim().length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Description is required",
+                code: "MISSING_DESCRIPTION"
+            });
+        }
+
+        // Validate hospitalId - patients must provide it explicitly
+        if (!hospitalId || hospitalId.trim().length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Hospital selection is required",
+                code: "MISSING_HOSPITAL_ID"
+            });
+        }
+
+        const finalHospitalId = hospitalId.trim();
+
+        // Prepare ticket data
+        const ticketData = {
             patientId: req.user.id,
-            hospitalId: req.user.hospitalId || "",
-            issueTitle,
-            description,
-            status: "pending",
+            hospitalId: finalHospitalId,
+            issueTitle: issueTitle.trim(),
+            description: description.trim(),
+            priority,
+            category,
+            status: "pending"
+        };
+
+        console.log("Creating ticket with data:", ticketData);
+
+        const ticket = await TicketService.createTicketWithHistory(
+            ticketData,
+            req.user.id,
+            req.user.role,
+            req.user.name
+        );
+
+        console.log("Ticket Created Successfully:", {
+            id: ticket._id,
+            caseNumber: ticket.caseNumber,
+            status: ticket.status
         });
 
-        console.log("Ticket Created Successfully:", ticket._id);
-        res.status(201).json(ticket);
+        res.status(201).json({
+            success: true,
+            message: "Ticket created successfully",
+            ticket: {
+                id: ticket._id,
+                caseNumber: ticket.caseNumber,
+                issueTitle: ticket.issueTitle,
+                description: ticket.description,
+                status: ticket.status,
+                priority: ticket.priority,
+                category: ticket.category,
+                createdAt: ticket.createdAt,
+                patientId: ticket.patientId,
+                hospitalId: ticket.hospitalId
+            }
+        });
     } catch (error) {
-        console.error("Error creating ticket:", error.message);
-        res.status(400);
-        throw new Error(error.message);
+        console.error("Error creating ticket:", error);
+        
+        // Handle validation errors
+        if (error.name === 'ValidationError') {
+            const errors = Object.keys(error.errors).map(field => ({
+                field,
+                message: error.errors[field].message
+            }));
+            
+            return res.status(400).json({
+                success: false,
+                message: "Ticket validation failed",
+                code: "VALIDATION_ERROR",
+                details: errors
+            });
+        }
+        
+        // Handle duplicate case number error
+        if (error.code === 11000 && error.keyPattern?.caseNumber) {
+            return res.status(409).json({
+                success: false,
+                message: "Case number conflict. Please try again.",
+                code: "DUPLICATE_CASE_NUMBER"
+            });
+        }
+
+        res.status(500).json({
+            success: false,
+            message: "Failed to create ticket. Please try again.",
+            code: "CREATION_FAILED",
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
 };
 
 export const getTickets = async (req, res) => {
-    // Patient sees only their own tickets.
-    if (req.user.role === "patient") {
-        const tickets = await Ticket.find({ patientId: req.user.id })
-            .populate("patientId", "name email")
-            .populate("assignedAdminId", "name")
-            .sort("-createdAt");
+    try {
+        const { 
+            status, 
+            priority, 
+            category, 
+            search, 
+            limit = 50, 
+            skip = 0, 
+            sortBy = 'lastActivityAt', 
+            sortOrder = 'desc' 
+        } = req.query;
+
+        const filters = {};
+        if (status) filters.status = status.split(',');
+        if (priority) filters.priority = priority.split(',');
+        if (category) filters.category = category.split(',');
+        if (search) filters.search = search;
+        filters.limit = parseInt(limit);
+        filters.skip = parseInt(skip);
+
+        const sort = { field: sortBy, order: sortOrder };
+
+        const tickets = await TicketService.getTicketsWithFilters(
+            filters,
+            sort,
+            req.user.id,
+            req.user.role
+        );
 
         res.json(tickets);
-        return;
+    } catch (error) {
+        console.error("Error getting tickets:", error.message);
+        res.status(500).json({ message: "Error retrieving tickets" });
     }
-
-    // Admin sees:
-    // 1. Tickets explicitly assigned to them (via assignedAdminId)
-    // 2. Unassigned tickets (no assignedAdminId) that belong to their hospital
-    // 3. Legacy unassigned tickets where ticket.hospitalId is empty but patient's hospitalId matches
-    if (req.user.role === "admin") {
-        const adminId = new mongoose.Types.ObjectId(req.user.id);
-        const adminHospitalId = req.user.hospitalId || "";
-
-        const tickets = await Ticket.aggregate([
-            {
-                $lookup: {
-                    from: "users",
-                    localField: "patientId",
-                    foreignField: "_id",
-                    as: "patient",
-                },
-            },
-            { $unwind: "$patient" },
-            {
-                $match: {
-                    $or: [
-                        // Case 1: Ticket explicitly assigned to this admin
-                        { assignedAdminId: adminId },
-                        // Case 2: Ticket belongs to admin's hospital AND is not yet assigned to anyone else
-                        {
-                            $and: [
-                                { hospitalId: adminHospitalId },
-                                {
-                                    $or: [
-                                        { assignedAdminId: { $exists: false } },
-                                        { assignedAdminId: null },
-                                    ],
-                                },
-                            ],
-                        },
-                        // Case 3: Legacy ticket with empty hospitalId — match via patient's hospital, unassigned
-                        {
-                            $and: [
-                                {
-                                    $or: [
-                                        { hospitalId: { $exists: false } },
-                                        { hospitalId: "" },
-                                        { hospitalId: null },
-                                    ],
-                                },
-                                { "patient.hospitalId": adminHospitalId },
-                                {
-                                    $or: [
-                                        { assignedAdminId: { $exists: false } },
-                                        { assignedAdminId: null },
-                                    ],
-                                },
-                            ],
-                        },
-                    ],
-                },
-            },
-            { $sort: { createdAt: -1 } },
-            {
-                $lookup: {
-                    from: "users",
-                    localField: "assignedAdminId",
-                    foreignField: "_id",
-                    as: "assignedAdmin",
-                },
-            },
-            {
-                $unwind: {
-                    path: "$assignedAdmin",
-                    preserveNullAndEmptyArrays: true,
-                },
-            },
-            {
-                $project: {
-                    patientId: {
-                        _id: "$patient._id",
-                        name: "$patient.name",
-                        email: "$patient.email",
-                    },
-                    assignedAdminId: {
-                        _id: "$assignedAdmin._id",
-                        name: "$assignedAdmin.name",
-                    },
-                    hospitalId: 1,
-                    issueTitle: 1,
-                    description: 1,
-                    status: 1,
-                    reply: 1,
-                    createdAt: 1,
-                    updatedAt: 1,
-                },
-            },
-        ]);
-
-        res.json(tickets);
-        return;
-    }
-
-    // Super user sees all tickets.
-    const tickets = await Ticket.find({})
-        .populate("patientId", "name email")
-        .populate("assignedAdminId", "name")
-        .sort("-createdAt");
-
-    res.json(tickets);
 };
 
 export const getPendingTickets = async (req, res) => {
@@ -159,148 +168,238 @@ export const assignTicket = async (req, res) => {
         throw new Error("Invalid adminId provided");
     }
 
-    const ticket = await Ticket.findById(req.params.id);
+    try {
+        // Get admin details for history
+        const User = (await import("../models/User.js")).default;
+        const admin = await User.findById(adminId);
+        
+        if (!admin) {
+            res.status(404);
+            throw new Error("Admin not found");
+        }
 
-    if (!ticket) {
-        res.status(404);
-        throw new Error("Ticket not found");
+        const ticket = await TicketService.assignTicket(
+            req.params.id,
+            adminId,
+            admin.name,
+            req.user.id,
+            req.user.role,
+            req.user.name
+        );
+
+        // Return populated ticket so frontend gets all details
+        const populated = await Ticket.findById(ticket._id)
+            .populate("patientId", "name email")
+            .populate("assignedAdminId", "name email");
+
+        res.json(populated);
+    } catch (error) {
+        console.error("Error assigning ticket:", error.message);
+        if (error.message.includes("not found")) {
+            res.status(404);
+        } else {
+            res.status(500);
+        }
+        throw new Error(error.message);
     }
-
-    // Cast to ObjectId explicitly so aggregate ObjectId comparisons always work
-    ticket.assignedAdminId = new mongoose.Types.ObjectId(adminId);
-    ticket.status = "assigned";
-    await ticket.save();
-
-    // Return populated ticket so frontend gets all details
-    const populated = await Ticket.findById(ticket._id)
-        .populate("patientId", "name email")
-        .populate("assignedAdminId", "name email");
-
-    res.json(populated);
 };
 
 export const replyToTicket = async (req, res) => {
     const { doctorName, doctorPhone, specialization, replyMessage } = req.body;
-    const ticket = await Ticket.findById(req.params.id);
+    
+    try {
+        const replyData = {
+            doctorName,
+            doctorPhone,
+            specialization,
+            replyMessage,
+            repliedBy: req.user.id,
+            repliedAt: new Date()
+        };
 
-    if (!ticket) {
-        res.status(404);
-        throw new Error("Ticket not found");
+        const ticket = await TicketService.addReplyToHistory(
+            req.params.id,
+            replyData,
+            req.user.id,
+            req.user.name
+        );
+
+        res.json(ticket);
+    } catch (error) {
+        console.error("Error replying to ticket:", error.message);
+        if (error.message.includes("not found")) {
+            res.status(404);
+        } else if (error.message.includes("Access denied")) {
+            res.status(403);
+        } else {
+            res.status(500);
+        }
+        throw new Error(error.message);
     }
-
-    if (ticket.assignedAdminId.toString() !== req.user.id.toString()) {
-        res.status(403);
-        throw new Error("Only the assigned admin can reply to this ticket");
-    }
-
-    ticket.reply = {
-        doctorName,
-        doctorPhone,
-        specialization,
-        replyMessage,
-        repliedBy: req.user.id,
-        repliedAt: new Date(),
-    };
-    ticket.status = "resolved";
-    await ticket.save();
-
-    res.json(ticket);
 };
 
 export const getTicketDetails = async (req, res) => {
-    const ticket = await Ticket.findById(req.params.id)
-        .populate("patientId", "name email")
-        .populate("assignedAdminId", "name")
-        .populate("reply.repliedBy", "name");
+    try {
+        const ticket = await TicketService.getTicketWithHistory(
+            req.params.id,
+            req.user.id,
+            req.user.role
+        );
 
-    if (!ticket) {
-        res.status(404);
-        throw new Error("Ticket not found");
+        res.json(ticket);
+    } catch (error) {
+        console.error("Error getting ticket details:", error.message);
+        if (error.message.includes("not found")) {
+            res.status(404);
+        } else if (error.message.includes("Access denied")) {
+            res.status(403);
+        } else {
+            res.status(500);
+        }
+        throw new Error(error.message);
     }
-
-    res.json(ticket);
 };
 
 export const getStats = async (req, res) => {
-    const totalTickets = await Ticket.countDocuments();
-    const pendingTickets = await Ticket.countDocuments({ status: "pending" });
-    const resolvedTickets = await Ticket.countDocuments({ status: "resolved" });
+    try {
+        const ticketStats = await TicketService.getTicketStats(
+            req.user.id,
+            req.user.role
+        );
 
-    // Calculate stats by hospital type
-    // We need to join with User (patients) and then with Hospital to get the type
-    // However, since hospitalId might be a simple string or an ObjectId, 
-    // and Ticket only has patientId, we aggregate based on the patient's hospital type.
-
-    const stats = await Ticket.aggregate([
-        {
-            $lookup: {
-                from: "users",
-                localField: "patientId",
-                foreignField: "_id",
-                as: "patient"
-            }
-        },
-        { $unwind: "$patient" },
-        {
-            $lookup: {
-                from: "hospitals",
-                let: { hId: "$patient.hospitalId" },
-                pipeline: [
-                    {
-                        $match: {
-                            $expr: {
-                                $or: [
-                                    { $eq: ["$code", "$$hId"] },
-                                    {
-                                        $and: [
-                                            { $eq: [{ $strLenCP: "$$hId" }, 24] },
-                                            { $eq: ["$_id", { $toObjectId: "$$hId" }] }
-                                        ]
-                                    }
-                                ]
-                            }
+        // Calculate hospital type distribution
+        const hospitalStats = await Hospital.aggregate([
+            {
+                $group: {
+                    _id: "$type",
+                    gov: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$type", "gov"] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+                    private: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$type", "private"] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+                    semi: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$type", "semi"] },
+                                1,
+                                0
+                            ]
                         }
                     }
-                ],
-                as: "hospital"
+                }
             }
-        },
-        { $unwind: "$hospital" },
-        {
-            $group: {
-                _id: "$hospital.type",
-                count: { $sum: 1 }
-            }
-        }
-    ]);
+        ]);
 
-    const statsByType = {
-        gov: 0,
-        private: 0,
-        semi: 0
-    };
+        // Extract hospital type counts
+        const hospitalTypeStats = hospitalStats.length > 0 ? hospitalStats[0] : { gov: 0, private: 0, semi: 0 };
+        
+        // Remove the _id field from the result
+        const { _id, ...statsByType } = hospitalTypeStats;
 
-    stats.forEach(item => {
-        if (statsByType.hasOwnProperty(item._id)) {
-            statsByType[item._id] = item.count;
-        }
-    });
-
-    res.json({
-        totalTickets,
-        pendingTickets,
-        resolvedTickets,
-        statsByType
-    });
+        res.json({
+            ...ticketStats,
+            totalHospitals: statsByType.gov + statsByType.private + statsByType.semi,
+            statsByType
+        });
+    } catch (error) {
+        console.error("Error getting ticket stats:", error.message);
+        res.status(500).json({ 
+            success: false,
+            message: "Error retrieving stats" 
+        });
+    }
 };
 
 // Legacy support or fallback
 export const updateTicket = async (req, res) => {
-    const ticket = await Ticket.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json(ticket);
+    const { status } = req.body;
+    
+    try {
+        const ticket = await TicketService.updateTicketStatus(
+            req.params.id,
+            status,
+            req.user.id,
+            req.user.role,
+            req.user.name
+        );
+        
+        res.json(ticket);
+    } catch (error) {
+        console.error("Error updating ticket:", error.message);
+        if (error.message.includes("not found")) {
+            res.status(404);
+        } else {
+            res.status(500);
+        }
+        throw new Error(error.message);
+    }
 };
 
 export const deleteTicket = async (req, res) => {
-    await Ticket.findByIdAndDelete(req.params.id);
-    res.json({ message: "Ticket deleted" });
+    try {
+        const ticket = await Ticket.findById(req.params.id);
+        if (!ticket) {
+            res.status(404);
+            throw new Error("Ticket not found");
+        }
+        
+        // Add history entry before deletion
+        await TicketService.addHistoryEntry(
+            req.params.id,
+            'resolved',
+            req.user.id,
+            req.user.role,
+            req.user.name,
+            `Ticket deleted by ${req.user.name}`
+        );
+        
+        await Ticket.findByIdAndDelete(req.params.id);
+        res.json({ message: "Ticket deleted" });
+    } catch (error) {
+        console.error("Error deleting ticket:", error.message);
+        res.status(500).json({ message: "Error deleting ticket" });
+    }
+};
+
+// New endpoint for updating ticket status
+export const updateTicketStatus = async (req, res) => {
+    const { status } = req.body;
+    
+    if (!status || !['pending', 'assigned', 'in_progress', 'resolved', 'closed'].includes(status)) {
+        res.status(400).json({ message: "Invalid status" });
+        return;
+    }
+    
+    try {
+        const ticket = await TicketService.updateTicketStatus(
+            req.params.id,
+            status,
+            req.user.id,
+            req.user.role,
+            req.user.name
+        );
+        
+        res.json(ticket);
+    } catch (error) {
+        console.error("Error updating ticket status:", error.message);
+        if (error.message.includes("not found")) {
+            res.status(404);
+        } else {
+            res.status(500);
+        }
+        throw new Error(error.message);
+    }
 };
