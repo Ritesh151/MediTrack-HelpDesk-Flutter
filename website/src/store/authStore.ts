@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User, LoginRequest, RegisterRequest, AuthResponse } from '../models';
-import { authService } from '../services';
+import { authService, apiService } from '../services';
 
 interface AuthState {
   // State
@@ -20,6 +20,7 @@ interface AuthState {
   setLoading: (loading: boolean) => void;
   updateUser: (user: User) => void;
   tryAutoLogin: () => Promise<boolean>;
+  getLoginRedirect: () => string;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -159,7 +160,7 @@ export const useAuthStore = create<AuthState>()(
             if (user) {
               set({
                 user,
-                token: authService.getAuthToken(),
+                token: apiService.getAuthToken(),
                 isAuthenticated: true,
                 isLoading: false,
               });
@@ -167,7 +168,7 @@ export const useAuthStore = create<AuthState>()(
             }
           }
           
-          set({ isLoading: false });
+          set({ isLoading: false, isAuthenticated: false });
           return false;
         } catch (error) {
           set({
@@ -175,6 +176,23 @@ export const useAuthStore = create<AuthState>()(
             error: (error as Error).message,
           });
           return false;
+        }
+      },
+
+      // Get login redirect based on user role
+      getLoginRedirect: () => {
+        const { user } = get();
+        if (!user) return '/login';
+        
+        switch (user.role) {
+          case 'patient':
+            return '/patient';
+          case 'admin':
+            return '/admin';
+          case 'super':
+            return '/super';
+          default:
+            return '/login';
         }
       },
     }),

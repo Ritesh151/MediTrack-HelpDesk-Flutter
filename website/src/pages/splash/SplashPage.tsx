@@ -4,17 +4,18 @@ import { useAuthStore } from '../../store';
 
 const SplashPage: React.FC = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, tryAutoLogin } = useAuthStore();
+  const { isAuthenticated, tryAutoLogin, user, getLoginRedirect } = useAuthStore();
 
   useEffect(() => {
     const initializeApp = async () => {
       // Try auto-login
       const isLoggedIn = await tryAutoLogin();
       
-      // Navigate after a short delay for splash effect
+      // Navigate after a short delay for splash effect (2 seconds like Flutter)
       setTimeout(() => {
         if (isLoggedIn) {
-          navigate('/dashboard');
+          const redirectPath = getLoginRedirect();
+          navigate(redirectPath);
         } else {
           navigate('/login');
         }
@@ -22,31 +23,36 @@ const SplashPage: React.FC = () => {
     };
 
     initializeApp();
-  }, [navigate, tryAutoLogin, isAuthenticated]);
+  }, [navigate, tryAutoLogin, user, getLoginRedirect]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
       <div className="text-center">
-        {/* Logo */}
+        {/* Logo Container - 120x120 like Flutter */}
         <div className="mb-8">
-          <div className="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-[120px] h-[120px] bg-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl">
+            <svg className="w-16 h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">MediTrack Pro</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">Healthcare HelpDesk System</p>
+          
+          {/* App Title - matching Flutter style */}
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
+            MediTrack Pro
+          </h1>
+          
+          {/* Tagline */}
+          <p className="text-lg text-gray-600 dark:text-gray-400">
+            Your Health, Our Priority
+          </p>
         </div>
 
-        {/* Loading animation */}
-        <div className="flex justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        {/* Loading Indicator - matching Flutter design */}
+        <div className="flex justify-center mb-4">
+          <div className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+            <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
+          </div>
         </div>
-
-        {/* Loading text */}
-        <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-          Loading your experience...
-        </p>
       </div>
     </div>
   );

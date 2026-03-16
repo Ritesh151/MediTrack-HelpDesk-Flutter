@@ -5,7 +5,7 @@ import { LoginRequest } from '../../models';
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { login, isLoading, error, clearError } = useAuthStore();
+  const { login, isLoading, error, clearError, getLoginRedirect } = useAuthStore();
   
   const [formData, setFormData] = useState<LoginRequest>({
     email: '',
@@ -27,7 +27,9 @@ const LoginPage: React.FC = () => {
 
     await login(formData);
     
-    // Navigation will be handled by auth store and App component
+    // Navigate to the appropriate dashboard based on user role
+    const redirectPath = getLoginRedirect();
+    navigate(redirectPath);
   };
 
   return (

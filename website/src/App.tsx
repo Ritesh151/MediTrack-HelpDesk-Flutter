@@ -33,9 +33,9 @@ const RoleGuard: React.FC<{ children: React.ReactNode; roles: string[] }> = ({ c
   
   if (!user || !roles.includes(user.role)) {
     // Redirect to appropriate dashboard based on user role
-    if (user?.role === 'patient') return <Navigate to="/patient/dashboard" replace />;
-    if (user?.role === 'admin') return <Navigate to="/admin/dashboard" replace />;
-    if (user?.role === 'super') return <Navigate to="/super/dashboard" replace />;
+    if (user?.role === 'patient') return <Navigate to="/patient" replace />;
+    if (user?.role === 'admin') return <Navigate to="/admin" replace />;
+    if (user?.role === 'super') return <Navigate to="/super" replace />;
     return <Navigate to="/login" replace />;
   }
   
@@ -48,9 +48,9 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   
   if (isAuthenticated && user) {
     // Redirect to appropriate dashboard based on user role
-    if (user.role === 'patient') return <Navigate to="/patient/dashboard" replace />;
-    if (user.role === 'admin') return <Navigate to="/admin/dashboard" replace />;
-    if (user.role === 'super') return <Navigate to="/super/dashboard" replace />;
+    if (user.role === 'patient') return <Navigate to="/patient" replace />;
+    if (user.role === 'admin') return <Navigate to="/admin" replace />;
+    if (user.role === 'super') return <Navigate to="/super" replace />;
     return <Navigate to="/login" replace />;
   }
   
@@ -61,9 +61,9 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 const RoleBasedRedirect: React.FC = () => {
   const { user } = useAuthStore();
   
-  if (user?.role === 'patient') return <Navigate to="/patient/dashboard" replace />;
-  if (user?.role === 'admin') return <Navigate to="/admin/dashboard" replace />;
-  if (user?.role === 'super') return <Navigate to="/super/dashboard" replace />;
+  if (user?.role === 'patient') return <Navigate to="/patient" replace />;
+  if (user?.role === 'admin') return <Navigate to="/admin" replace />;
+  if (user?.role === 'super') return <Navigate to="/super" replace />;
   return <Navigate to="/login" replace />;
 };
 
@@ -97,51 +97,34 @@ const App: React.FC = () => {
           </PublicRoute>
         } />
 
-        {/* Protected Routes */}
-        <Route path="/dashboard" element={
-          <AuthGuard>
-            <DashboardLayout>
-              <Routes>
-                <Route index element={<PatientDashboard />} />
-              </Routes>
-            </DashboardLayout>
-          </AuthGuard>
-        } />
-
         {/* Patient Routes */}
-        <Route path="/patient/*" element={
+        <Route path="/patient" element={
           <AuthGuard>
             <RoleGuard roles={['patient']}>
               <DashboardLayout>
-                <Routes>
-                  <Route path="dashboard" element={<PatientDashboard />} />
-                </Routes>
+                <PatientDashboard />
               </DashboardLayout>
             </RoleGuard>
           </AuthGuard>
         } />
 
         {/* Admin Routes */}
-        <Route path="/admin/*" element={
+        <Route path="/admin" element={
           <AuthGuard>
             <RoleGuard roles={['admin', 'super']}>
               <DashboardLayout>
-                <Routes>
-                  <Route path="dashboard" element={<AdminDashboard />} />
-                </Routes>
+                <AdminDashboard />
               </DashboardLayout>
             </RoleGuard>
           </AuthGuard>
         } />
 
         {/* Super Admin Routes */}
-        <Route path="/super/*" element={
+        <Route path="/super" element={
           <AuthGuard>
             <RoleGuard roles={['super']}>
               <DashboardLayout>
-                <Routes>
-                  <Route path="dashboard" element={<SuperDashboard />} />
-                </Routes>
+                <SuperDashboard />
               </DashboardLayout>
             </RoleGuard>
           </AuthGuard>

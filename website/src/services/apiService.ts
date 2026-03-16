@@ -131,10 +131,7 @@ export class ApiService {
   public async get<T>(url: string, params?: any): Promise<ApiResponse<T>> {
     try {
       const response = await this.axiosInstance.get<T>(url, { params });
-      return {
-        success: true,
-        data: response.data,
-      };
+      return this.handleResponse(response);
     } catch (error) {
       return {
         success: false,
@@ -143,13 +140,47 @@ export class ApiService {
     }
   }
 
+  private handleResponse<T>(response: any): ApiResponse<T> {
+    if (response.status >= 200 && response.status < 300) {
+      // Convert MongoDB _id to id for consistency
+      const convertIds = (obj: any): any => {
+        if (Array.isArray(obj)) {
+          return obj.map(item => convertIds(item));
+        } else if (obj && typeof obj === 'object') {
+          const converted: any = { ...obj };
+          if (obj._id) {
+            converted.id = obj._id;
+            delete converted._id;
+          }
+          // Recursively convert nested objects
+          Object.keys(converted).forEach(key => {
+            if (typeof converted[key] === 'object') {
+              converted[key] = convertIds(converted[key]);
+            }
+          });
+          return converted;
+        }
+        return obj;
+      };
+
+      return {
+        success: true,
+        data: convertIds(response.data),
+        message: response.data?.message || 'Success',
+      };
+    } else {
+      return {
+        success: false,
+        error: response.data?.error || response.data?.message || 'Request failed',
+        message: response.data?.message || 'Request failed',
+      };
+    }
+  }
+
   public async post<T>(url: string, data?: any, config?: any): Promise<ApiResponse<T>> {
     try {
       const response = await this.axiosInstance.post<T>(url, data, config);
-      return {
-        success: true,
-        data: response.data,
-      };
+      return this.handleResponse(response);
     } catch (error) {
       return {
         success: false,
@@ -161,10 +192,7 @@ export class ApiService {
   public async put<T>(url: string, data?: any, config?: any): Promise<ApiResponse<T>> {
     try {
       const response = await this.axiosInstance.put<T>(url, data, config);
-      return {
-        success: true,
-        data: response.data,
-      };
+      return this.handleResponse(response);
     } catch (error) {
       return {
         success: false,
@@ -191,10 +219,7 @@ export class ApiService {
   public async delete<T>(url: string, config?: any): Promise<ApiResponse<T>> {
     try {
       const response = await this.axiosInstance.delete<T>(url, config);
-      return {
-        success: true,
-        data: response.data,
-      };
+      return this.handleResponse(response);
     } catch (error) {
       return {
         success: false,
