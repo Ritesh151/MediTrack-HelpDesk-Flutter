@@ -1,7 +1,28 @@
 import React, { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { useAuthStore, useTicketStore, useHospitalStore } from '../../store';
 import TicketStatusChart from '../../components/charts/TicketStatusChart';
 import { Ticket, Hospital } from '../../models';
+
+const hospitalSchema = z.object({
+  name: z.string().min(1, 'Hospital name is required'),
+  type: z.enum(['gov', 'private', 'semi']),
+  address: z.string().min(1, 'Address is required'),
+  city: z.string().min(1, 'City is required'),
+  code: z.string().min(1, 'Hospital code is required'),
+});
+
+const adminSchema = z.object({
+  name: z.string().min(1, 'Admin name is required'),
+  email: z.string().email('Valid email is required'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  hospitalId: z.string().min(1, 'Hospital is required'),
+});
+
+type HospitalFormData = z.infer<typeof hospitalSchema>;
+type AdminFormData = z.infer<typeof adminSchema>;
 
 const SuperDashboard: React.FC = () => {
   const { user } = useAuthStore();
@@ -18,6 +39,7 @@ const SuperDashboard: React.FC = () => {
     hospitals, 
     isLoading: hospitalsLoading, 
     fetchHospitals,
+    createHospital,
     verifyHospital,
     unverifyHospital,
     error: hospitalError,
@@ -28,6 +50,30 @@ const SuperDashboard: React.FC = () => {
   const [selectedHospital, setSelectedHospital] = useState<Hospital | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'tickets' | 'hospitals'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAddHospitalModal, setShowAddHospitalModal] = useState(false);
+  const [showAssignAdminModal, setShowAssignAdminModal] = useState(false);
+
+  // Form hooks
+  const hospitalForm = useForm<HospitalFormData>({
+    resolver: zodResolver(hospitalSchema),
+    defaultValues: {
+      name: '',
+      type: 'gov',
+      address: '',
+      city: '',
+      code: '',
+    },
+  });
+
+  const adminForm = useForm<AdminFormData>({
+    resolver: zodResolver(adminSchema),
+    defaultValues: {
+      name: '',
+      email: '',
+      password: '',
+      hospitalId: '',
+    },
+  });
 
   useEffect(() => {
     fetchTickets();
@@ -67,6 +113,27 @@ const SuperDashboard: React.FC = () => {
       await unverifyHospital(hospitalId);
     } catch (error) {
       console.error('Failed to unverify hospital:', error);
+    }
+  };
+
+  const handleCreateHospital = async (data: HospitalFormData) => {
+    try {
+      await createHospital(data);
+      setShowAddHospitalModal(false);
+      hospitalForm.reset();
+    } catch (error) {
+      console.error('Failed to create hospital:', error);
+    }
+  };
+
+  const handleAssignAdmin = async (data: AdminFormData) => {
+    try {
+      // This would call a user service to assign admin
+      // For now, we'll just close the modal
+      setShowAssignAdminModal(false);
+      adminForm.reset();
+    } catch (error) {
+      console.error('Failed to assign admin:', error);
     }
   };
 

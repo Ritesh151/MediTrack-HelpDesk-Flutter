@@ -86,7 +86,7 @@ const TicketReplyPage: React.FC = () => {
 
     setIsSubmittingChat(true);
     try {
-      await sendMessage(ticket.id, {
+      await sendMessage({
         ticketId: ticket.id,
         text: chatMessage.trim(),
         senderId: user?.id || '',

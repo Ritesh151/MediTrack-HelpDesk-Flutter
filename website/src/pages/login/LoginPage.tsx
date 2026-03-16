@@ -25,11 +25,16 @@ const LoginPage: React.FC = () => {
       return;
     }
 
-    await login(formData);
-    
-    // Navigate to the appropriate dashboard based on user role
-    const redirectPath = getLoginRedirect();
-    navigate(redirectPath);
+    try {
+      await login(formData);
+      
+      // Navigate to the appropriate dashboard based on user role
+      const redirectPath = getLoginRedirect();
+      navigate(redirectPath);
+    } catch (error) {
+      // Error is handled by the auth store
+      console.error('Login failed:', error);
+    }
   };
 
   return (
@@ -131,6 +136,18 @@ const LoginPage: React.FC = () => {
             </button>
           </div>
 
+          {/* Error Display */}
+          {error && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+              <div className="flex items-center">
+                <svg className="w-5 h-5 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-red-700 dark:text-red-300 text-sm">{error}</span>
+              </div>
+            </div>
+          )}
+
           {/* Demo accounts */}
           <div className="mt-6">
             <div className="relative">
@@ -145,29 +162,29 @@ const LoginPage: React.FC = () => {
             <div className="mt-4 space-y-2">
               <button
                 type="button"
+                onClick={() => setFormData({ email: 'super@meditrack.com', password: 'super123' })}
+                className="w-full text-left px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
+              >
+                <div className="font-medium">Super Admin Account</div>
+                <div className="text-gray-500 dark:text-gray-400">super@meditrack.com / super123</div>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setFormData({ email: 'admin@meditrack.com', password: 'admin123' })}
+                className="w-full text-left px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
+              >
+                <div className="font-medium">Admin Account</div>
+                <div className="text-gray-500 dark:text-gray-400">admin@meditrack.com / admin123</div>
+              </button>
+              
+              <button
+                type="button"
                 onClick={() => setFormData({ email: 'patient@example.com', password: 'password123' })}
                 className="w-full text-left px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
               >
                 <div className="font-medium">Patient Account</div>
                 <div className="text-gray-500 dark:text-gray-400">patient@example.com / password123</div>
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => setFormData({ email: 'admin@example.com', password: 'password123' })}
-                className="w-full text-left px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
-              >
-                <div className="font-medium">Admin Account</div>
-                <div className="text-gray-500 dark:text-gray-400">admin@example.com / password123</div>
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => setFormData({ email: 'super@example.com', password: 'password123' })}
-                className="w-full text-left px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300"
-              >
-                <div className="font-medium">Super Admin Account</div>
-                <div className="text-gray-500 dark:text-gray-400">super@example.com / password123</div>
               </button>
             </div>
           </div>

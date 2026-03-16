@@ -15,32 +15,94 @@ export class AuthService {
 
   // Login user
   public async login(credentials: LoginRequest): Promise<ApiResponse<AuthResponse>> {
-    const response = await apiService.post<AuthResponse>('/api/auth/login', credentials);
-    
-    if (response.success && response.data) {
-      // Store token and user data
-      apiService.setAuthToken(response.data.token);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+    try {
+      const response = await apiService.post<any>('/api/auth/login', credentials);
+      
+      if (response.success && response.data) {
+        // Backend returns: {id, name, email, role, hospitalId, permissions, token}
+        // We need to transform it to: {user: {...}, token: "..."}
+        const backendData = response.data;
+        
+        const transformedData: AuthResponse = {
+          user: {
+            id: backendData.id,
+            name: backendData.name,
+            email: backendData.email,
+            role: backendData.role,
+            hospitalId: backendData.hospitalId,
+            permissions: backendData.permissions || [],
+          },
+          token: backendData.token
+        };
+        
+        // Store token and user data
+        apiService.setAuthToken(transformedData.token);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('token', transformedData.token);
+          localStorage.setItem('user', JSON.stringify(transformedData.user));
+          localStorage.setItem('role', transformedData.user.role);
+        }
+        
+        return {
+          success: true,
+          data: transformedData,
+          message: 'Login successful'
+        };
       }
+      
+      return response;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message || 'Login failed'
+      };
     }
-    
-    return response;
   }
 
   // Register new user
   public async register(userData: RegisterRequest): Promise<ApiResponse<AuthResponse>> {
-    const response = await apiService.post<AuthResponse>('/api/auth/register', userData);
-    
-    if (response.success && response.data) {
-      // Store token and user data
-      apiService.setAuthToken(response.data.token);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+    try {
+      const response = await apiService.post<any>('/api/auth/register', userData);
+      
+      if (response.success && response.data) {
+        // Backend returns: {id, name, email, role, hospitalId, permissions, token}
+        // We need to transform it to: {user: {...}, token: "..."}
+        const backendData = response.data;
+        
+        const transformedData: AuthResponse = {
+          user: {
+            id: backendData.id,
+            name: backendData.name,
+            email: backendData.email,
+            role: backendData.role,
+            hospitalId: backendData.hospitalId,
+            permissions: backendData.permissions || [],
+          },
+          token: backendData.token
+        };
+        
+        // Store token and user data
+        apiService.setAuthToken(transformedData.token);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('token', transformedData.token);
+          localStorage.setItem('user', JSON.stringify(transformedData.user));
+          localStorage.setItem('role', transformedData.user.role);
+        }
+        
+        return {
+          success: true,
+          data: transformedData,
+          message: 'Registration successful'
+        };
       }
+      
+      return response;
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message || 'Registration failed'
+      };
     }
-    
-    return response;
   }
 
   // Get current user profile
