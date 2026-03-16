@@ -6,10 +6,10 @@ MediTrack HelpDesk is a full-stack hospital support ticketing system built with 
 
 ## 🎯 Business Objective
 
-- Provide patients with an easy channel to submit and track support tickets
+- Provide patients with an easy channel to submit and track support tickets with **automatic case number generation** (`MED-YYYY-XXXX`)
 - Enable hospital admins to manage, assign, and resolve tickets efficiently
 - Empower super users with full system oversight across all hospitals
-- Deliver a secure, scalable, and production-ready healthcare helpdesk solution
+- Deliver a secure, scalable, and production-ready healthcare helpdesk solution with **mandatory hospital selection**
 - Support data-driven decisions through role-specific dashboards and analytics
 
 ## 📁 Project Structure
@@ -187,21 +187,21 @@ flutter run
 flutter run -d chrome
 ```
 
-## 👥 Roles & Features
+## Roles & Features
 
-### 🧑‍⚕️ Patient
+### Patient
 - Register and log in securely
 - Submit new support tickets with title, description, and hospital
 - Track ticket status (`pending → assigned → resolved`)
 - View full ticket history and doctor reply details
 
-### 🏥 Hospital Admin
+### Hospital Admin
 - View all tickets assigned to their hospital
 - Reply to tickets with doctor name, phone, specialization, and message
 - Resolve patient tickets with detailed medical responses
 - Dashboard with ticket statistics and charts
 
-### 👑 Super User
+### Super User
 - Full system oversight across all hospitals
 - Create and manage hospitals
 - Assign admin roles to users
@@ -267,7 +267,7 @@ Base URL: `http://localhost:5000`
 | Method | Endpoint | Access | Description |
 |--------|----------|--------|-------------|
 | `GET` | `/api/tickets` | 🔒 Protected | Get tickets (role-filtered) |
-| `POST` | `/api/tickets` | 🔒 Patient | Create a new ticket |
+| `POST` | `/api/tickets` | 🔒 Patient | Create a new ticket with auto-generated case number |
 | `GET` | `/api/tickets/stats` | 🔒 Protected | Get ticket count statistics |
 | `GET` | `/api/tickets/pending` | 🔒 Super | Get all unassigned tickets |
 | `GET` | `/api/tickets/:id` | 🔒 Protected | Get full ticket details |
